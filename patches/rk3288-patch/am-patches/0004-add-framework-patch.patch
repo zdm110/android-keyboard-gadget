@@ -1,0 +1,142 @@
+From ef309518674b9799dccf4b2572eacc1d1af34178 Mon Sep 17 00:00:00 2001
+From: Julian Zhu <julian@vibe.us>
+Date: Tue, 7 Jul 2020 16:14:26 +0800
+Subject: [PATCH 4/8] add framework patch
+
+---
+ .../java/android/hardware/usb/UsbManager.java | 82 +++++++++++++++++++
+ .../android/server/usb/UsbDeviceManager.java  |  4 +-
+ 2 files changed, 84 insertions(+), 2 deletions(-)
+
+diff --git a/frameworks/base/core/java/android/hardware/usb/UsbManager.java b/frameworks/base/core/java/android/hardware/usb/UsbManager.java
+index f64ef87b3b..5b041d0e1d 100644
+--- a/frameworks/base/core/java/android/hardware/usb/UsbManager.java
++++ b/frameworks/base/core/java/android/hardware/usb/UsbManager.java
+@@ -24,6 +24,8 @@ import android.os.ParcelFileDescriptor;
+ import android.os.RemoteException;
+ import android.os.SystemProperties;
+ import android.util.Log;
++import java.io.PrintWriter;
++import java.util.Arrays;
+ 
+ import java.util.HashMap;
+ 
+@@ -195,6 +197,13 @@ public class UsbManager {
+      */
+     public static final String USB_FUNCTION_ACCESSORY = "accessory";
+ 
++    /**
++     * Name of the HID USB function.
++     * Used in extras for the {@link #ACTION_USB_STATE} broadcast
++     *
++     * {@hide}
++     */
++    public static final String USB_FUNCTION_KJSD_HID = "kjsdhid";
+     /**
+      * Name of extra for {@link #ACTION_USB_DEVICE_ATTACHED} and
+      * {@link #ACTION_USB_DEVICE_DETACHED} broadcasts
+@@ -439,6 +448,79 @@ public class UsbManager {
+         }
+     }
+ 
++    /**
++     * Returns the current USB functions.
++     *
++     * @return name of current functions seperated by comma.
++     *
++     * {@hide}
++     */
++    public String getCurrentFunctions() {
++        String functions = SystemProperties.get("sys.usb.config", "none");
++	return functions;
++    }
++
++    /**
++     * Add a USB function.
++     *
++     * @return name of current functions seperated by comma.
++     *
++     * {@hide}
++     */
++    public String addFunction(String functions, String function) {
++         if ("none".equals(functions)) {
++             return function;
++         }
++        if (!containsFunction(functions, function)) {
++            if (functions.length() > 0) {
++                functions += ",";
++            }
++            functions += function;
++        }
++        return functions;
++    }
++
++    /**
++     * Remove a usb function.
++     *
++     * @return name of current functions seperated by comma.
++     *
++     * {@hide}
++     */
++    public String removeFunction(String functions, String function) {
++        String[] split = functions.split(",");
++        for (int i = 0; i < split.length; i++) {
++            if (function.equals(split[i])) {
++                split[i] = null;
++            }
++        }
++        if (split.length == 1 && split[0] == null) {
++            return "none";
++        }
++        StringBuilder builder = new StringBuilder();
++         for (int i = 0; i < split.length; i++) {
++            String s = split[i];
++            if (s != null) {
++                if (builder.length() > 0) {
++                    builder.append(",");
++                }
++                builder.append(s);
++            }
++        }
++        return builder.toString();
++    }
++
++    /**
++     * Check function is contained in it.
++     *
++     * @return name of current functions seperated by comma.
++     *
++     * {@hide}
++     */
++    public boolean containsFunction(String functions, String function) {
++        return Arrays.asList(functions.split(",")).contains(function);
++    }
++
+     /**
+      * Sets the current USB function.
+      * If function is null, then the current function is set to the default function.
+diff --git a/frameworks/base/services/usb/java/com/android/server/usb/UsbDeviceManager.java b/frameworks/base/services/usb/java/com/android/server/usb/UsbDeviceManager.java
+index 25e112d5ff..118374c38d 100644
+--- a/frameworks/base/services/usb/java/com/android/server/usb/UsbDeviceManager.java
++++ b/frameworks/base/services/usb/java/com/android/server/usb/UsbDeviceManager.java
+@@ -69,7 +69,7 @@ import java.util.Scanner;
+ public class UsbDeviceManager {
+ 
+     private static final String TAG = UsbDeviceManager.class.getSimpleName();
+-    private static final boolean DEBUG = false;
++    private static final boolean DEBUG = true;
+ 
+     private static final String USB_STATE_MATCH =
+             "DEVPATH=/devices/virtual/android_usb/android0";
+@@ -355,7 +355,7 @@ public class UsbDeviceManager {
+             try {
+                 // persist.sys.usb.config should never be unset.  But if it is, set it to "adb"
+                 // so we have a chance of debugging what happened.
+-                mDefaultFunctions = SystemProperties.get("persist.sys.usb.config", "adb");
++                mDefaultFunctions = SystemProperties.get("persist.sys.usb.config", "adb,kjsdhid");
+ 
+                 // Check if USB mode needs to be overridden depending on OEM specific bootmode.
+                 mDefaultFunctions = processOemUsbOverride(mDefaultFunctions);
+-- 
+2.17.1
+

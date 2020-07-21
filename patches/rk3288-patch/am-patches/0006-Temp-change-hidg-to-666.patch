@@ -1,0 +1,24 @@
+From 7f11ff1b616c8b49a1ce95ee7bde666db56ee066 Mon Sep 17 00:00:00 2001
+From: Julian Zhu <julian@vibe.us>
+Date: Wed, 8 Jul 2020 16:39:40 +0800
+Subject: [PATCH 6/8] Temp change hidg* to 666
+
+---
+ device/rockchip/common/ueventd.rockchip.rc | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/device/rockchip/common/ueventd.rockchip.rc b/device/rockchip/common/ueventd.rockchip.rc
+index 93822512de..0965db71da 100644
+--- a/device/rockchip/common/ueventd.rockchip.rc
++++ b/device/rockchip/common/ueventd.rockchip.rc
+@@ -116,3 +116,7 @@
+ /dev/i2c-2           	  0660   system   	 system
+ /dev/i2c-3           	  0660   system   	 system
+ /dev/i2c-4           	  0660   system   	 system
++
++# for hid device
++/dev/hidg0                0666   system     system
++/dev/hidg1                0666   system     system
+-- 
+2.17.1
+

@@ -1,0 +1,439 @@
+ build/tools/post_process_props.py            | 11 ++--
+ device/rockchip/common/device.mk             |  6 +-
+ device/rockchip/common/init.rk30board.usb.rc | 23 +++++++
+ device/rockchip/common/init.rockchip.rc      |  2 +-
+ device/rockchip/rk3288/init.rk30board.usb.rc |  9 +++
+ kernel/arch/arm/configs/sdses_801p_defconfig | 13 ++--
+ kernel/drivers/usb/dwc_otg_310/usbdev_rk32.c | 16 ++---
+ kernel/drivers/usb/gadget/function/f_hid.c   | 90 +++++++++++++++++++++-------
+ system/core/rootdir/init.usb.configfs.rc     | 22 +++++++
+ system/core/rootdir/init.usb.rc              | 17 ++++++
+ system/core/rootdir/ueventd.rc               |  1 +
+ 11 files changed, 167 insertions(+), 43 deletions(-)
+
+diff --git a/build/tools/post_process_props.py b/build/tools/post_process_props.py
+index 9dcaadf..1a857bf 100755
+--- a/build/tools/post_process_props.py
++++ b/build/tools/post_process_props.py
+@@ -37,12 +37,11 @@ def mangle_default_prop(prop):
+   # (this is for userdebug builds)
+   if prop.get("ro.debuggable") == "1":
+     val = prop.get("persist.sys.usb.config")
+-    if "adb" not in val:
+-      if val == "":
+-        val = "adb"
+-      else:
+-        val = val + ",adb"
+-      prop.put("persist.sys.usb.config", val)
++    if val == "":
++        val = "hid,adb"
++    else:
++        val = "hid,adb"
++    prop.put("persist.sys.usb.config", val)
+   # UsbDeviceManager expects a value here.  If it doesn't get it, it will
+   # default to "adb". That might not the right policy there, but it's better
+   # to be explicit.
+diff --git a/device/rockchip/common/device.mk b/device/rockchip/common/device.mk
+index 37e73d5..9c5408e 100755
+--- a/device/rockchip/common/device.mk
++++ b/device/rockchip/common/device.mk
+@@ -371,7 +371,7 @@ PRODUCT_TAGS += dalvik.gc.type-precise
+ ifeq ($(strip $(BUILD_WITH_UMS)),true)
+ PRODUCT_PROPERTY_OVERRIDES +=               \
+     ro.factory.hasUMS=true                  \
+-    persist.sys.usb.config=mass_storage,adb
++    persist.sys.usb.config=hid
+ 
+ PRODUCT_COPY_FILES += \
+     $(LOCAL_PATH)/init.rockchip.hasUMS.true.rc:root/init.$(TARGET_BOARD_HARDWARE).environment.rc
+@@ -380,14 +380,14 @@ ifeq ($(strip $(BUILD_WITH_CDROM)),true)
+ PRODUCT_PROPERTY_OVERRIDES +=                 \
+     ro.factory.hasUMS=cdrom                   \
+     ro.factory.cdrom=$(BUILD_WITH_CDROM_PATH) \
+-    persist.sys.usb.config=mass_storage,adb 
++    persist.sys.usb.config=hid
+ 
+ PRODUCT_COPY_FILES += \
+     $(LOCAL_PATH)/init.rockchip.hasCDROM.true.rc:root/init.$(TARGET_BOARD_HARDWARE).environment.rc
+ else
+ PRODUCT_PROPERTY_OVERRIDES +=       \
+     ro.factory.hasUMS=false         \
+-    persist.sys.usb.config=mtp,adb  \
++    persist.sys.usb.config=hid
+     testing.mediascanner.skiplist = /mnt/shell/emulated/Android/
+ 
+ PRODUCT_COPY_FILES += \
+diff --git a/device/rockchip/common/init.rk30board.usb.rc b/device/rockchip/common/init.rk30board.usb.rc
+index 99633e2..b306465 100644
+--- a/device/rockchip/common/init.rk30board.usb.rc
++++ b/device/rockchip/common/init.rk30board.usb.rc
+@@ -12,6 +12,8 @@ on boot
+     write /sys/class/android_usb/android0/iManufacturer ${ro.product.manufacturer}
+     write /sys/class/android_usb/android0/iProduct ${ro.product.model}
+     write /sys/class/android_usb/android0/f_mass_storage/inquiry_string $ro.product.usbfactory
++    chown system system /dev/hidg0
++    chmod 0777 /dev/hidg0
+ 
+ on fs
+     mkdir /dev/usb-ffs 0770 shell shell
+@@ -101,6 +103,27 @@ on property:sys.usb.config=ptp,adb
+     start adbd
+     setprop sys.usb.state ${sys.usb.config}
+ 
++on property:sys.usb.config=hid
++    write /sys/class/android_usb/android0/enable 0
++    write /sys/class/android_usb/android0/idVendor 261A
++    write /sys/class/android_usb/android0/idProduct 0C01
++    write /sys/class/android_usb/android0/functions ${sys.usb.config}
++    write /sys/class/android_usb/android0/enable 1
++    setprop sys.usb.state ${sys.usb.config}
++    chown system system /dev/hidg0
++    chmod 0777 /dev/hidg0
++
++on property:sys.usb.config=hid,adb
++    write /sys/class/android_usb/android0/enable 0
++    write /sys/class/android_usb/android0/idVendor 2207
++    write /sys/class/android_usb/android0/idProduct 0110
++    write /sys/class/android_usb/android0/functions ${sys.usb.config}
++    write /sys/class/android_usb/android0/enable 1
++    start adbd
++    setprop sys.usb.state ${sys.usb.config}
++    chown system system /dev/hidg0
++    chmod 0777 /dev/hidg0
++
+ on property:sys.usb.config=mass_storage
+     write /sys/class/android_usb/android0/enable 0
+     write /sys/class/android_usb/android0/idVendor 2207
+diff --git a/device/rockchip/common/init.rockchip.rc b/device/rockchip/common/init.rockchip.rc
+index 4b3e0fe..d131e59 100755
+--- a/device/rockchip/common/init.rockchip.rc
++++ b/device/rockchip/common/init.rockchip.rc
+@@ -154,7 +154,7 @@ on charger
+     setprop ro.boot.charger.emmc 0
+     export PATH /sbin:/vendor/bin:/system/sbin:/system/bin:/system/xbin
+     export LD_LIBRARY_PATH /vendor/lib:/system/lib
+-    setprop sys.usb.config adb
++    setprop sys.usb.config hid
+ 
+ service akmd /system/bin/akmd
+     class main
+diff --git a/device/rockchip/rk3288/init.rk30board.usb.rc b/device/rockchip/rk3288/init.rk30board.usb.rc
+index a039fe5..122989b 100644
+--- a/device/rockchip/rk3288/init.rk30board.usb.rc
++++ b/device/rockchip/rk3288/init.rk30board.usb.rc
+@@ -18,6 +18,7 @@ on boot
+     mkdir /config/usb_gadget/g1/functions/rndis.gs4
+     write /config/usb_gadget/g1/functions/rndis.gs4/wceis 1
+     mkdir /config/usb_gadget/g1/functions/midi.gs5
++    mkdir /config/usb_gadget/g1/functions/hid.gs6
+     mkdir /config/usb_gadget/g1/configs/b.1 0770 shell shell
+     mkdir /config/usb_gadget/g1/configs/b.1/strings/0x409 0770 shell shell
+     write /config/usb_gadget/g1/os_desc/b_vendor_code 0x1
+@@ -70,6 +71,14 @@ on property:sys.usb.config=midi && property:sys.usb.configfs=1
+ on property:sys.usb.config=midi,adb && property:sys.usb.configfs=1
+     write /config/usb_gadget/g1/idProduct 0x0014
+ 
++on property:sys.usb.config=hid && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x261A
++    write /config/usb_gadget/g1/idProduct 0x0C01
++
++on property:sys.usb.config=hid,adb && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x2207
++    write /config/usb_gadget/g1/idProduct 0x0110
++
+ on property:sys.usb.config=accessory && property:sys.usb.configfs=1
+     write /config/usb_gadget/g1/idVendor 0x18d1
+     write /config/usb_gadget/g1/idProduct 0x2d00
+diff --git a/kernel/arch/arm/configs/sdses_801p_defconfig b/kernel/arch/arm/configs/sdses_801p_defconfig
+index b83d471..5e8eda7 100644
+--- a/kernel/arch/arm/configs/sdses_801p_defconfig
++++ b/kernel/arch/arm/configs/sdses_801p_defconfig
+@@ -576,15 +576,16 @@ CONFIG_USB_GADGET_DEBUG_FILES=y
+ CONFIG_USB_GADGET_VBUS_DRAW=500
+ CONFIG_USB_CONFIGFS=y
+ CONFIG_USB_CONFIGFS_ACM=y
+-CONFIG_USB_CONFIGFS_RNDIS=y
++# CONFIG_USB_CONFIGFS_RNDIS is not set
++CONFIG_USB_CONFIGFS_F_HID=y
+ CONFIG_USB_CONFIGFS_MASS_STORAGE=y
+ CONFIG_USB_CONFIGFS_F_FS=y
+-CONFIG_USB_CONFIGFS_F_MTP=y
+-CONFIG_USB_CONFIGFS_F_PTP=y
+-CONFIG_USB_CONFIGFS_F_ACC=y
+-CONFIG_USB_CONFIGFS_F_AUDIO_SRC=y
++# CONFIG_USB_CONFIGFS_F_MTP is not set
++# CONFIG_USB_CONFIGFS_F_PTP is not set
++# CONFIG_USB_CONFIGFS_F_ACC is not set
++# CONFIG_USB_CONFIGFS_F_AUDIO_SRC is not set
+ CONFIG_USB_CONFIGFS_UEVENT=y
+-CONFIG_USB_CONFIGFS_F_MIDI=y
++# CONFIG_USB_CONFIGFS_F_MIDI is not set
+ CONFIG_USB_CONFIGFS_F_UVC=y
+ CONFIG_USB20_HOST=y
+ CONFIG_USB20_OTG=y
+diff --git a/kernel/drivers/usb/dwc_otg_310/usbdev_rk32.c b/kernel/drivers/usb/dwc_otg_310/usbdev_rk32.c
+index 0983033..85bddb8 100644
+--- a/kernel/drivers/usb/dwc_otg_310/usbdev_rk32.c
++++ b/kernel/drivers/usb/dwc_otg_310/usbdev_rk32.c
+@@ -40,11 +40,13 @@ static void usb20otg_phy_suspend(void *pdata, int suspend)
+ 
+ 	if (suspend) {
+ 		/* enable soft control */
+-		control_usb->grf_uoc0_base->CON2 =
+-		    (0x01 << 2) | ((0x01 << 2) << 16);
+-		/* enter suspend */
+-		control_usb->grf_uoc0_base->CON3 = 0x2A | (0x3F << 16);
+-		usbpdata->phy_status = 1;
++		/*
++		 * control_usb->grf_uoc0_base->CON2 =
++		 *     (0x01 << 2) | ((0x01 << 2) << 16);
++		 * [> enter suspend <]
++		 * control_usb->grf_uoc0_base->CON3 = 0x2A | (0x3F << 16);
++		 * usbpdata->phy_status = 1;
++		 */
+ 	} else {
+ 		/* exit suspend */
+ 		control_usb->grf_uoc0_base->CON2 = ((0x01 << 2) << 16);
+@@ -104,8 +106,8 @@ static void usb20otg_clock_enable(void *pdata, int enable)
+ 		clk_prepare_enable(usbpdata->ahbclk);
+ 		clk_prepare_enable(usbpdata->phyclk);
+ 	} else {
+-		clk_disable_unprepare(usbpdata->ahbclk);
+-		clk_disable_unprepare(usbpdata->phyclk);
++		/* clk_disable_unprepare(usbpdata->ahbclk); */
++		/* clk_disable_unprepare(usbpdata->phyclk); */
+ 	}
+ }
+ 
+diff --git a/kernel/drivers/usb/gadget/function/f_hid.c b/kernel/drivers/usb/gadget/function/f_hid.c
+index a5dae5b..866135e 100644
+--- a/kernel/drivers/usb/gadget/function/f_hid.c
++++ b/kernel/drivers/usb/gadget/function/f_hid.c
+@@ -91,7 +91,7 @@ static struct usb_interface_descriptor hidg_interface_desc = {
+ static struct hid_descriptor hidg_desc = {
+ 	.bLength			= sizeof hidg_desc,
+ 	.bDescriptorType		= HID_DT_HID,
+-	.bcdHID				= 0x0101,
++	.bcdHID				= 0x0200,
+ 	.bCountryCode			= 0x00,
+ 	.bNumDescriptors		= 0x1,
+ 	/*.desc[0].bDescriptorType	= DYNAMIC */
+@@ -106,7 +106,7 @@ static struct usb_endpoint_descriptor hidg_hs_in_ep_desc = {
+ 	.bEndpointAddress	= USB_DIR_IN,
+ 	.bmAttributes		= USB_ENDPOINT_XFER_INT,
+ 	/*.wMaxPacketSize	= DYNAMIC */
+-	.bInterval		= 4, /* FIXME: Add this field in the
++	.bInterval		= 1, /* FIXME: Add this field in the
+ 				      * HID gadget configuration?
+ 				      * (struct hidg_func_descriptor)
+ 				      */
+@@ -118,7 +118,7 @@ static struct usb_endpoint_descriptor hidg_hs_out_ep_desc = {
+ 	.bEndpointAddress	= USB_DIR_OUT,
+ 	.bmAttributes		= USB_ENDPOINT_XFER_INT,
+ 	/*.wMaxPacketSize	= DYNAMIC */
+-	.bInterval		= 4, /* FIXME: Add this field in the
++	.bInterval		= 1, /* FIXME: Add this field in the
+ 				      * HID gadget configuration?
+ 				      * (struct hidg_func_descriptor)
+ 				      */
+@@ -427,6 +427,16 @@ static int hidg_setup(struct usb_function *f,
+ 		goto respond;
+ 		break;
+ 
++	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8
++		| USB_REQ_GET_INTERFACE):
++		VDBG(cdev, "get_interface\n");
++		/* send an empty report */
++		length = min_t(unsigned, length, hidg->report_length);
++		memset(req->buf, 0x0, length);
++
++		goto respond;
++		break;
++
+ 	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8
+ 		  | HID_REQ_GET_PROTOCOL):
+ 		VDBG(cdev, "get_protocol\n");
+@@ -621,12 +631,12 @@ static int hidg_bind(struct usb_configuration *c, struct usb_function *f)
+ 
+ 	/* allocate instance-specific endpoints */
+ 	status = -ENODEV;
+-	ep = usb_ep_autoconfig(c->cdev->gadget, &hidg_fs_in_ep_desc);
++	ep = usb_ep_autoconfig(c->cdev->gadget, &hidg_hs_in_ep_desc);
+ 	if (!ep)
+ 		goto fail;
+ 	hidg->in_ep = ep;
+ 
+-	ep = usb_ep_autoconfig(c->cdev->gadget, &hidg_fs_out_ep_desc);
++	ep = usb_ep_autoconfig(c->cdev->gadget, &hidg_hs_out_ep_desc);
+ 	if (!ep)
+ 		goto fail;
+ 	hidg->out_ep = ep;
+@@ -657,9 +667,9 @@ static int hidg_bind(struct usb_configuration *c, struct usb_function *f)
+ 		cpu_to_le16(hidg->report_desc_length);
+ 
+ 	hidg_hs_in_ep_desc.bEndpointAddress =
+-		hidg_fs_in_ep_desc.bEndpointAddress;
++		hidg_hs_in_ep_desc.bEndpointAddress;
+ 	hidg_hs_out_ep_desc.bEndpointAddress =
+-		hidg_fs_out_ep_desc.bEndpointAddress;
++		hidg_hs_out_ep_desc.bEndpointAddress;
+ 
+ 	status = usb_assign_descriptors(f, hidg_fs_descriptors,
+ 			hidg_hs_descriptors, NULL);
+@@ -932,6 +942,29 @@ static void hidg_unbind(struct usb_configuration *c, struct usb_function *f)
+ 	usb_free_all_descriptors(f);
+ }
+ 
++static struct hidg_func_descriptor fdesc_hid= {
++	.subclass           = 0, /* No subclass */
++	.protocol           = 0, /* Keyboard */
++	.report_length      = 64,
++	.report_desc_length = 28,
++	.report_desc        = {
++		0x06, 0x00,//usage page 0x06,0xFF 0x00 (62580)
++		0xFF, 0x09,//usage  0x09,0x01(1)-unknown
++		0x01, 0xA1,//collection 0xA1,0x01(APPlication)
++		0x01, 0x15,//logical Minimum 0x15,0x00(0 bytes)
++		0x00, 0x26,//logical Maximum 0x26,0x00 0xFF(255)
++		0xFF, 0x00,
++		0x75, 0x08,//Report size 0x75,0x08(8)
++		0x09, 0x20,//usage 0x09,0x20(32)-unknown
++		0x95, 0x40,//Report count 0x95,0x40(64 bytes)
++		0x82, 0x02,//Input 0x82,0x01 0x02()
++		0x01, 0x09,//usage 0x09,0x02(2)-unknown
++		0x20, 0x95,//Report count 0x95,0x40(64 bytes)
++		0x40, 0x91,//Output 0x91,0x02()
++		0x02, 0xC0,//End Collection 0xC0
++	}
++};
++
+ static struct usb_function *hidg_alloc(struct usb_function_instance *fi)
+ {
+ 	struct f_hidg *hidg;
+@@ -948,19 +981,36 @@ static struct usb_function *hidg_alloc(struct usb_function_instance *fi)
+ 	++opts->refcnt;
+ 
+ 	hidg->minor = opts->minor;
+-	hidg->bInterfaceSubClass = opts->subclass;
+-	hidg->bInterfaceProtocol = opts->protocol;
+-	hidg->report_length = opts->report_length;
+-	hidg->report_desc_length = opts->report_desc_length;
+-	if (opts->report_desc) {
+-		hidg->report_desc = kmemdup(opts->report_desc,
+-					    opts->report_desc_length,
+-					    GFP_KERNEL);
+-		if (!hidg->report_desc) {
+-			kfree(hidg);
+-			mutex_unlock(&opts->lock);
+-			return ERR_PTR(-ENOMEM);
+-		}
++	//hidg->bInterfaceSubClass = opts->subclass;
++	hidg->bInterfaceSubClass = fdesc_hid.subclass;
++	//hidg->bInterfaceProtocol = opts->protocol;
++	hidg->bInterfaceProtocol = fdesc_hid.protocol;
++	//hidg->report_length = opts->report_length;
++	hidg->report_length = fdesc_hid.report_length;
++	//hidg->report_desc_length = opts->report_desc_length;
++	hidg->report_desc_length = fdesc_hid.report_desc_length;
++
++/*
++ *         if (opts->report_desc) {
++ *                 hidg->report_desc = kmemdup(opts->report_desc,
++ *                                             opts->report_desc_length,
++ *                                             GFP_KERNEL);
++ *                 if (!hidg->report_desc) {
++ *                         kfree(hidg);
++ *                         mutex_unlock(&opts->lock);
++ *                         return ERR_PTR(-ENOMEM);
++ *                 }
++ *         }
++ * 
++ */
++	hidg->report_desc = kmemdup(fdesc_hid.report_desc,
++                                     fdesc_hid.report_desc_length,
++                                     GFP_KERNEL);
++
++	if (!hidg->report_desc) {
++		kfree(hidg);
++		mutex_unlock(&opts->lock);
++		return ERR_PTR(-ENOMEM);
+ 	}
+ 
+ 	mutex_unlock(&opts->lock);
+diff --git a/system/core/rootdir/init.usb.configfs.rc b/system/core/rootdir/init.usb.configfs.rc
+index 186384b..c6aa8dc 100644
+--- a/system/core/rootdir/init.usb.configfs.rc
++++ b/system/core/rootdir/init.usb.configfs.rc
+@@ -62,6 +62,28 @@ on property:sys.usb.ffs.ready=1 && property:sys.usb.config=ptp,adb && property:s
+     write /config/usb_gadget/g1/UDC ${sys.usb.controller}
+     setprop sys.usb.state ${sys.usb.config}
+ 
++on property:sys.usb.config=hid && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "hid"
++    rm /config/usb_gadget/g1/configs/b.1/f1
++    rm /config/usb_gadget/g1/configs/b.1/f2
++    rm /config/usb_gadget/g1/configs/b.1/f3
++    symlink /config/usb_gadget/g1/functions/hid.gs6 /config/usb_gadget/g1/configs/b.1/f1
++    write /config/usb_gadget/g1/UDC ${sys.usb.controller}
++    setprop sys.usb.state ${sys.usb.config}
++
++on property:sys.usb.config=hid,adb && property:sys.usb.configfs=1
++    start adbd
++
++on property:sys.usb.ffs.ready=1 && property:sys.usb.config=hid,adb && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "hid_adb"
++    rm /config/usb_gadget/g1/configs/b.1/f1
++    rm /config/usb_gadget/g1/configs/b.1/f2
++    rm /config/usb_gadget/g1/configs/b.1/f3
++    symlink /config/usb_gadget/g1/functions/hid.gs6 /config/usb_gadget/g1/configs/b.1/f1
++    symlink /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f2
++    write /config/usb_gadget/g1/UDC ${sys.usb.controller}
++    setprop sys.usb.state ${sys.usb.config}
++
+ on property:sys.usb.config=accessory && property:sys.usb.configfs=1
+     write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "accessory"
+     rm /config/usb_gadget/g1/configs/b.1/f1
+diff --git a/system/core/rootdir/init.usb.rc b/system/core/rootdir/init.usb.rc
+index 915d159..cb45260 100644
+--- a/system/core/rootdir/init.usb.rc
++++ b/system/core/rootdir/init.usb.rc
+@@ -44,6 +44,23 @@ on property:sys.usb.config=adb && property:sys.usb.configfs=0
+     start adbd
+     setprop sys.usb.state ${sys.usb.config}
+ 
++on property:sys.usb.config=hid
++    write /sys/class/android_usb/android0/enable 0
++    write /sys/class/android_usb/android0/idVendor 261A
++    write /sys/class/android_usb/android0/idProduct 0C01
++    write /sys/class/android_usb/android0/functions ${sys.usb.config}
++    write /sys/class/android_usb/android0/enable 1
++    setprop sys.usb.state ${sys.usb.config}
++
++on property:sys.usb.config=hid,adb
++    write /sys/class/android_usb/android0/enable 0
++    write /sys/class/android_usb/android0/idVendor 2207
++    write /sys/class/android_usb/android0/idProduct 0110
++    write /sys/class/android_usb/android0/functions ${sys.usb.config}
++    write /sys/class/android_usb/android0/enable 1
++    start adbd
++    setprop sys.usb.state ${sys.usb.config}
++
+ # USB accessory configuration
+ on property:sys.usb.config=accessory && property:sys.usb.configfs=0
+     write /sys/class/android_usb/android0/enable 0
+diff --git a/system/core/rootdir/ueventd.rc b/system/core/rootdir/ueventd.rc
+index 6ef491c..651284d 100644
+--- a/system/core/rootdir/ueventd.rc
++++ b/system/core/rootdir/ueventd.rc
+@@ -19,6 +19,7 @@ subsystem adf
+ /dev/hw_random            0440   root       system
+ /dev/ashmem               0666   root       root
+ /dev/binder               0666   root       root
++/dev/hidg0                0777   system     system
+ 
+ # Anyone can read the logs, but if they're not in the "logs"
+ # group, then they'll only see log entries for their UID.
+-- 
+2.7.4
+
+

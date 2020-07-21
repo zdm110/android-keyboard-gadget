@@ -1,0 +1,43 @@
+From 1c2b0000440d81f14702f28f841adee8f7e74d54 Mon Sep 17 00:00:00 2001
+From: Julian Zhu <julian@vibe.us>
+Date: Wed, 8 Jul 2020 16:18:25 +0800
+Subject: [PATCH 5/8] add sepolicy for hidg0 & hidg1
+
+---
+ device/rockchip/common/sepolicy/app.te        | 1 +
+ device/rockchip/common/sepolicy/device.te     | 2 ++
+ device/rockchip/common/sepolicy/file_contexts | 2 ++
+ 3 files changed, 5 insertions(+)
+
+diff --git a/device/rockchip/common/sepolicy/app.te b/device/rockchip/common/sepolicy/app.te
+index f947d0a9f9..696d5cfda8 100644
+--- a/device/rockchip/common/sepolicy/app.te
++++ b/device/rockchip/common/sepolicy/app.te
+@@ -1,3 +1,4 @@
+ allow appdomain vfat:dir create_dir_perms;
+ allow appdomain vfat:file create_file_perms;
+ allow appdomain pdflush_proc:file rw_file_perms;
++allow appdomain hid_gadget_device:chr_file rw_file_perms;
+diff --git a/device/rockchip/common/sepolicy/device.te b/device/rockchip/common/sepolicy/device.te
+index 13f7a5fa7f..20f0bcbfe0 100644
+--- a/device/rockchip/common/sepolicy/device.te
++++ b/device/rockchip/common/sepolicy/device.te
+@@ -26,3 +26,5 @@ type rknand_device, dev_type;
+ 
+ # for sensor device
+ type sensor_device, dev_type;
++# for hid device
++type hid_gadget_device, dev_type;
+diff --git a/device/rockchip/common/sepolicy/file_contexts b/device/rockchip/common/sepolicy/file_contexts
+index 3eac715b9c..1ce3a9f8d0 100644
+--- a/device/rockchip/common/sepolicy/file_contexts
++++ b/device/rockchip/common/sepolicy/file_contexts
+@@ -138,3 +138,5 @@
+ 
+ #akmd
+ /dev/akm8963_dev     u:object_r:akmd_device:s0
++# USB Gadget
++/dev/hidg(.*)        u:object_r:hid_gadget_device:s0
+-- 
+2.17.1
+

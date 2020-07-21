@@ -1,0 +1,68 @@
+From 560f1a85467bab823ea84d30d393e22eb9bb015c Mon Sep 17 00:00:00 2001
+From: Julian Zhu <julian@vibe.us>
+Date: Tue, 7 Jul 2020 16:13:15 +0800
+Subject: [PATCH 3/8] add system patch
+
+---
+ system/core/rootdir/init.usb.rc | 45 +++++++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
+
+diff --git a/system/core/rootdir/init.usb.rc b/system/core/rootdir/init.usb.rc
+index e290ca47fb..9331deca1a 100644
+--- a/system/core/rootdir/init.usb.rc
++++ b/system/core/rootdir/init.usb.rc
+@@ -85,6 +85,51 @@ on property:sys.usb.config=accessory,audio_source,adb
+     start adbd
+     setprop sys.usb.state ${sys.usb.config}
+ 
++# USB and audio accessory configuration, with adb
++on property:sys.usb.config=accessory,audio_source,adb
++    write /sys/class/android_usb/android0/enable 0
++    write /sys/class/android_usb/android0/idVendor 18d1
++    write /sys/class/android_usb/android0/idProduct 2d05
++    write /sys/class/android_usb/android0/functions ${sys.usb.config}
++    write /sys/class/android_usb/android0/enable 1
++    start adbd
++    setprop sys.usb.state ${sys.usb.config}
++    
++# mtp with adb and kjsdhid
++on property:sys.usb.config=mtp,adb,kjsdhid
++    write /sys/class/android_usb/android0/enable 0
++    write /sys/class/android_usb/android0/idVendor 18d1
++    write /sys/class/android_usb/android0/idProduct 2d05
++    write /sys/class/android_usb/android0/functions ${sys.usb.config}
++    write /sys/class/android_usb/android0/enable 1
++    start adbd
++    setprop sys.usb.state ${sys.usb.config}
++
++# adb with kjsdhid
++on property:sys.usb.config=adb,kjsdhid
++    write /sys/class/android_usb/android0/enable 0
++    write /sys/class/android_usb/android0/idVendor 18d1
++    write /sys/class/android_usb/android0/idProduct 2d05
++    write /sys/class/android_usb/android0/functions ${sys.usb.config}
++    write /sys/class/android_usb/android0/enable 1
++    start adbd
++    setprop sys.usb.state ${sys.usb.config}
++
++# mtp with adb
++on property:sys.usb.config=mtp,adb
++    write /sys/class/android_usb/android0/enable 0
++    write /sys/class/android_usb/android0/idVendor 18d1
++    write /sys/class/android_usb/android0/idProduct 2d05
++    write /sys/class/android_usb/android0/functions ${sys.usb.config}
++    write /sys/class/android_usb/android0/enable 1
++    start adbd
++    setprop sys.usb.state ${sys.usb.config}
++
++
++# Used to set USB configuration at boot and to switch the configuration
++# when changing the default configuration
++on property:persist.sys.usb.config=*
++    setprop sys.usb.config ${persist.sys.usb.config}
+ # Used to set USB configuration at boot and to switch the configuration
+ # when changing the default configuration
+ on property:persist.sys.usb.config=*
+-- 
+2.17.1
+

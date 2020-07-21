@@ -1,0 +1,46 @@
+From e3d1ea62137f84e72cf524709fecc0f40519c28d Mon Sep 17 00:00:00 2001
+From: julian <julian@vibe.us>
+Date: Mon, 20 Jul 2020 20:42:08 +0800
+Subject: [PATCH 8/8] modify hidg2 descriptor and chmod
+
+---
+ device/rockchip/common/ueventd.rockchip.rc      |  1 +
+ kernel/drivers/usb/gadget/f_hid_android_touch.c | 12 ++++++------
+ 2 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/device/rockchip/common/ueventd.rockchip.rc b/device/rockchip/common/ueventd.rockchip.rc
+index 0965db71da..ec2d4bd214 100644
+--- a/device/rockchip/common/ueventd.rockchip.rc
++++ b/device/rockchip/common/ueventd.rockchip.rc
+@@ -120,3 +120,4 @@
+ # for hid device
+ /dev/hidg0                0666   system     system
+ /dev/hidg1                0666   system     system
++/dev/hidg2                0666   system     system
+diff --git a/kernel/drivers/usb/gadget/f_hid_android_touch.c b/kernel/drivers/usb/gadget/f_hid_android_touch.c
+index ce8b194661..d9ba44e951 100644
+--- a/kernel/drivers/usb/gadget/f_hid_android_touch.c
++++ b/kernel/drivers/usb/gadget/f_hid_android_touch.c
+@@ -5,13 +5,13 @@
+ 
+ /* HID descriptor for touchscreen */
+ static struct hidg_func_descriptor ghid_device_android_touch = {
+-	.subclass      = 1, /* Boot Interface Subclass */
+-	.protocol      = 2, /* Mouse */
+-	.report_length = 4,
+-	.report_desc_length	= 52,
++	.subclass      = 0, /* Boot Interface Subclass */
++	.protocol      = 0, /* Mouse */
++	.report_length = 9,
++	.report_desc_length	= 56,
+ 	.report_desc = {
+-		0x05, 0x00,  //Usage Page(Generic Desktop Controls)
+-		0x09, 0x00,  //Usage (Mouse)
++		0x05, 0x01,  //Usage Page(Generic Desktop Controls)
++		0x09, 0x02,  //Usage (Mouse)
+ 		0xa1, 0x01,  //Collection (Application)
+ 		0x09, 0x01,  //Usage (pointer)
+ 		0xa1, 0x00,  //Collection (Physical)
+-- 
+2.17.1
+
