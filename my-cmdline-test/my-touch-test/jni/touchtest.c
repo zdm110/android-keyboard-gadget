@@ -17,13 +17,13 @@ void MoveTo(int x, int y)
  //Buf[0]的D0就是左键，D1就是右键，D2就是中键
  //Buf[1]为X轴低字节，Buf[2]为X轴高字节，
  //Buf[3]为Y轴低字节，Buf[4]为Y轴高字节，
- char Buf[9]={0,0,0,0,0};
+ char Buf[5]={0,0,0,0,0};
  Buf[0] = 0x00;
  Buf[1] = x & 0xFF;
  Buf[2] = (x >> 8) & 0xFF;
  Buf[3] = y & 0xFF;
  Buf[4] = (y >> 8) & 0xFF;
- if (write(mFd, Buf, 9) != 9) {
+ if (write(mFd, Buf, 5) != 5) {
      return;
   }
   usleep(50000);
@@ -42,13 +42,13 @@ void LineTo(int x, int y)
  //Buf[0]的D0就是左键，D1就是右键，D2就是中键
  //Buf[1]为X轴低字节，Buf[2]为X轴高字节，
  //Buf[3]为Y轴低字节，Buf[4]为Y轴高字节，
- char Buf[9]={0,0,0,0,0};
+ char Buf[5]={0,0,0,0,0};
  Buf[0] = 0x01; //左键按下
  Buf[1] = x & 0xFF;
  Buf[2] = (x >> 8) & 0xFF;
  Buf[3] = y & 0xFF;
  Buf[4] = (y >> 8) & 0xFF;
- if (write(mFd, Buf, 9) != 9) {
+ if (write(mFd, Buf, 5) != 5) {
      return;
   }
   usleep(50000);
