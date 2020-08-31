@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#define FACTOR 8
+
 int mFd;
 /********************************************************************
 函数功能：移动光标。
@@ -177,7 +179,7 @@ int main(int argc, const char *argv[])
     char cmd[25];
 
 	/* filename = argv[1]; */
-	filename = "/dev/hidg2";
+	filename = "/dev/hidg0";
 
 	if ((mFd = open(filename, O_RDWR, 0666)) == -1) {
 		perror(filename);
@@ -202,36 +204,36 @@ int main(int argc, const char *argv[])
         else if(strstr(cmd, "a") != NULL)
         {
             printf("Draw Tri-angle begin\n");
-            MoveTo(2000, 1000); //移动到（2000，1000）
-            LineTo(2000, 1000); //开始画线
-            LineTo(1000, 3000); //画线到（1000，3000）
-            LineTo(3000, 3000); //画线到（3000，3000）
-            LineTo(2000, 1000); //画线到（2000，1000）
-            MoveTo(2000, 1000); //松开鼠标左键
+            MoveTo(2000*FACTOR, 1000*FACTOR); //移动到（2000，1000）
+            LineTo(2000*FACTOR, 1000*FACTOR); //开始画线
+            LineTo(1000*FACTOR, 3000*FACTOR); //画线到（1000，3000）
+            LineTo(3000*FACTOR, 3000*FACTOR); //画线到（3000，3000）
+            LineTo(2000*FACTOR, 1000*FACTOR); //画线到（2000，1000）
+            MoveTo(2000*FACTOR, 1000*FACTOR); //松开鼠标左键
             printf("Draw Tri-angle end\n");
         }
         else if(strstr(cmd, "l") != NULL)
         {
             printf("Draw line begin\n");
-            MoveTo(1000, 1000); //移动到（1000，1000）
-            LineTo(1000, 1000); //开始画线
-            LineTo(3000, 3000); //画线到（3000，3000）
-            MoveTo(3000, 3000); //松开鼠标左键
+            MoveTo(1000*FACTOR, 1000*FACTOR); //移动到（1000，1000）
+            LineTo(1000*FACTOR, 1000*FACTOR); //开始画线
+            LineTo(3000*FACTOR, 3000*FACTOR); //画线到（3000，3000）
+            MoveTo(3000*FACTOR, 3000*FACTOR); //松开鼠标左键
             printf("Draw line end\n");
         }
         else if(strstr(cmd, "s") != NULL)
         {
-            MoveTo(1000, 1000); //移动到（1000，1000）
-            LineTo(1000, 1000); //开始画线
-            LineTo(1000, 3000); //画线到（1000，3000）
-            LineTo(3000, 3000); //画线到（3000，3000）
-            LineTo(3000, 1000); //画线到（3000，1000）
-            LineTo(1000, 1000); //画线到（1000，1000）
-            MoveTo(1000, 1000); //松开鼠标左键
+            MoveTo(1000*FACTOR, 1000*FACTOR); //移动到（1000，1000）
+            LineTo(1000*FACTOR, 1000*FACTOR); //开始画线
+            LineTo(1000*FACTOR, 3000*FACTOR); //画线到（1000，3000）
+            LineTo(3000*FACTOR, 3000*FACTOR); //画线到（3000，3000）
+            LineTo(3000*FACTOR, 1000*FACTOR); //画线到（3000，1000）
+            LineTo(1000*FACTOR, 1000*FACTOR); //画线到（1000，1000）
+            MoveTo(1000*FACTOR, 1000*FACTOR); //松开鼠标左键
         }
         else if(strstr(cmd, "c") != NULL)
         {
-            DrawCircle(2000, 2000, 1000); //画一个圆心在（2000，2000），半径为1000的圆
+            DrawCircle(2000*FACTOR, 2000*FACTOR, 1000*FACTOR); //画一个圆心在（2000，2000），半径为1000的圆
         }
         else if(strstr(cmd, "x") != NULL)
         {
