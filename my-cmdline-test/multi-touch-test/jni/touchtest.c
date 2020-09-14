@@ -190,8 +190,8 @@ void MultiPointGoToCenter(char touch)
 {
  int x, y;
  char s;
- x = 4096 / 2;
- y = 4096 / 2;
+ x = 4096 / 2 * FACTOR;
+ y = 4096 / 2 * FACTOR;
  if(touch)
  {
   s = 0x07; //点击
@@ -214,14 +214,14 @@ void MultiPointDrawLine()
 {
  int x, y;
  char s;
- x = 1000;
- y = 1000;
+ x = 1000*FACTOR;
+ y = 1000*FACTOR;
  s = 0x06; //数据有效，但是无点击
  MultiPointReport(&x, &y, &s, 1); //移动到(1000, 1000)
  s = 0x07; //数据有效，且有点击
  MultiPointReport(&x, &y, &s, 1); //开始画线
- x = 3000;
- y = 3000;
+ x = 3000*FACTOR;
+ y = 3000*FACTOR;
  MultiPointReport(&x, &y, &s, 1); //画到(3000, 3000)
  s = 0x00; //停止触摸
  MultiPointReport(&x, &y, &s, 1);
