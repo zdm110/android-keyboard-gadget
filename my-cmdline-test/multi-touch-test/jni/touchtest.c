@@ -18,17 +18,14 @@ int mFd;
 ********************************************************************/
 void MoveTo(int x, int y)
 {
- //需要返回的5字节报告的缓冲
- //Buf[0]的D0就是左键，D1就是右键，D2就是中键
- //Buf[1]为X轴低字节，Buf[2]为X轴高字节，
- //Buf[3]为Y轴低字节，Buf[4]为Y轴高字节，
- char Buf[5]={0,0,0,0,0};
- Buf[0] = 0x00;
- Buf[1] = x & 0xFF;
- Buf[2] = (x >> 8) & 0xFF;
- Buf[3] = y & 0xFF;
- Buf[4] = (y >> 8) & 0xFF;
- if (write(mFd, Buf, 5) != 5) {
+ char Buf[6]={0,0,0,0,0,0};
+ Buf[0] = 1; //single touch
+ Buf[1] = 0; //no touch
+ Buf[2] = x & 0xFF;
+ Buf[3] = (x >> 8) & 0xFF;
+ Buf[4] = y & 0xFF;
+ Buf[5] = (y >> 8) & 0xFF;
+ if (write(mFd, Buf, 6) != 6) {
      return;
   }
   usleep(50000);
@@ -43,17 +40,14 @@ void MoveTo(int x, int y)
 ********************************************************************/
 void LineTo(int x, int y)
 {
- //需要返回的5字节报告的缓冲
- //Buf[0]的D0就是左键，D1就是右键，D2就是中键
- //Buf[1]为X轴低字节，Buf[2]为X轴高字节，
- //Buf[3]为Y轴低字节，Buf[4]为Y轴高字节，
- char Buf[5]={0,0,0,0,0};
- Buf[0] = 0x01; //左键按下
- Buf[1] = x & 0xFF;
- Buf[2] = (x >> 8) & 0xFF;
- Buf[3] = y & 0xFF;
- Buf[4] = (y >> 8) & 0xFF;
- if (write(mFd, Buf, 5) != 5) {
+ char Buf[6]={0,0,0,0,0,0};
+ Buf[0] = 1; //single touch
+ Buf[1] = 0x01; //左键按下
+ Buf[2] = x & 0xFF;
+ Buf[3] = (x >> 8) & 0xFF;
+ Buf[4] = y & 0xFF;
+ Buf[5] = (y >> 8) & 0xFF;
+ if (write(mFd, Buf, 6) != 6) {
      return;
   }
   usleep(50000);
@@ -478,6 +472,8 @@ int main(int argc, const char *argv[])
         printf("s: Multi-touch: Draw Two Triangle\n");
         printf("c: Multi-touch: Draw Two square\n");
         printf("e: Multi-touch: Draw Two line\n");
+        printf("k: Single-touch: Goto Center\n");  
+        printf("v: Single-touch: Draw A Line\n");
         printf("x: Draw A Sine\n");
         printf("===========================\n\n");
         get_string(cmd);
@@ -514,6 +510,17 @@ int main(int argc, const char *argv[])
         else if(strstr(cmd, "x") != NULL)
         {
             DrawSinCurve(); //画正弦曲线
+        }
+        else if(strstr(cmd, "k") != NULL)
+        {
+            MoveTo(4096*FACTOR/2, 4096*FACTOR/2);
+        }
+        else if(strstr(cmd, "v") != NULL)
+        {
+            MoveTo(1000*FACTOR, 1000*FACTOR);
+            LineTo(1000*FACTOR, 1000*FACTOR);
+            MoveTo(3000*FACTOR, 3000*FACTOR);
+            LineTo(3000*FACTOR, 3000*FACTOR);
         }
     }
     
