@@ -112,7 +112,7 @@ void DrawSinCurve(void)
 void MultiPointReport(int *x, int *y, char *s, char n)
 {
  char i;
- char ReportBuf[14]; //总共为14字节，第1字节为报告ID。
+ char ReportBuf[62]; //总共为14字节，第1字节为报告ID。
  //第2字节为第一点状态，第3字节为第一点的触摸ID号；
  //第4、5字节为第一点x轴，第6、7字节为第一点y轴；
  //第8字节为第二点状态，第9字节为第二点的触摸ID号；
@@ -121,60 +121,37 @@ void MultiPointReport(int *x, int *y, char *s, char n)
  //发送2个点，如果超过两个点，则另外再增加额外的报告，
  //这时额外的报告的触摸点数都要设置为0。
  if(n == 0) return;
- if(n > MAX_TOUCH_POINT) //如果超过最大支持的点数，则只发送最多点数
+ memset(ReportBuf, 0, 62);
+ ReportBuf[0] = 2;
+ ReportBuf[1] = s[0];
+ for(i=0; i<n; i++)
  {
-  n = MAX_TOUCH_POINT;
+     ReportBuf[2+i*10] = i;
+     ReportBuf[3+i*10] = x[i] & 0xFF;
+     ReportBuf[4+i*10] = x[i] >> 8;
+     ReportBuf[5+i*10] = y[i] & 0xFF;
+     ReportBuf[6+i*10] = y[i] >> 8;
+     //ReportBuf[7+i*10] = 0xFF;
  }
- ReportBuf[0] = REPORTID_MTOUCH; //多点报告的报告ID为REPORTID_MTOUCH
- for(i = 0; i < n;) //分别发送各个点
+// ReportBuf[8] = 0x00;
+// ReportBuf[9] = 0xC6;
+// ReportBuf[10] = 0x01;
+// ReportBuf[11] = 0x00;
+//
+ if(n<6)
  {
-  ReportBuf[1] = s[i]; //状态
-  ReportBuf[2] = i + 1; //ID号
-  ReportBuf[3] = x[i] & 0xFF; //X轴低8位
-  ReportBuf[4] = (x[i] >> 8) & 0xFF; //X轴高8位
-  ReportBuf[5] = y[i] & 0xFF; //Y轴低8位
-  ReportBuf[6] = (y[i] >> 8) & 0xFF; //Y轴高8位
-  if(i == 0) //第一个包
-  {
-   ReportBuf[13] = n; //触摸的点数
-  }
-  else //其它包，设置为0
-  {
-   ReportBuf[13] = 0;
-  }
-  i ++;
-  if(i < n) //还有数据需要发送
-  {
-   ReportBuf[7] = s[i]; //状态
-   ReportBuf[8] = i + 1; //ID号
-   ReportBuf[9] = x[i] & 0xFF; //X轴低8位
-   ReportBuf[10] = (x[i] >> 8) & 0xFF; //X轴高8位
-   ReportBuf[11] = y[i] & 0xFF; //Y轴低8位
-   ReportBuf[12] = (y[i] >> 8) & 0xFF; //Y轴高8位
-   i ++;
-  }
-  else //没有更多的数据需要发送，后面的清0
-  {
-   char j;
-   for(j = 7; j < 13; j++)
-   {
-    ReportBuf[j] = 0;
-   }
-  }
- if (write(mFd, ReportBuf, 14) != 14) {
+     for(i=n; i<6; i++)
+     {
+         ReportBuf[2+i*10] = i;
+     }
+ }
+ ReportBuf[61] = 0x01;
+
+
+ if (write(mFd, ReportBuf, 62) != 62) {
      return;
  }
-#if 0
-  while(Ep1InIsBusy) //等待之前的数据发送完毕
-  {
-   ProcessInterrupt();  //处理中断
-  }
-  if(ConfigValue == 0) return;
-  //报告准备好了，通过端点1返回，长度为14字节。
-  D12WriteEndpointBuffer(3, 14, ReportBuf);
-  Ep1InIsBusy=1;  //设置端点忙标志。
-#endif
- }
+ 
 }
 ////////////////////////End of function//////////////////////////////
 
@@ -196,7 +173,7 @@ void MultiPointGoToCenter(char touch)
  }
  else
  {
-  s = 0x00; //松开
+  s = 0x04; //松开
  }
  MultiPointReport(&x, &y, &s, 1);
 }
@@ -221,7 +198,7 @@ void MultiPointDrawLine()
  x = 3000*FACTOR;
  y = 3000*FACTOR;
  MultiPointReport(&x, &y, &s, 1); //画到(3000, 3000)
- s = 0x00; //停止触摸
+ s = 0x04; //停止触摸
  MultiPointReport(&x, &y, &s, 1);
 }
 ////////////////////////End of function//////////////////////////////
